@@ -307,12 +307,8 @@ View(freq_abs)
 names(freq_abs)[112] <- "Total"
 ```
 
-```{r}
-# Gráficos de Frequencia :
 
-hist
 
-```
 
 
 
