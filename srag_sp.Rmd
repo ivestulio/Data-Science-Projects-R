@@ -1,0 +1,323 @@
+---
+output: html_document
+editor_options: 
+  chunk_output_type: inline
+---
+
+SINDROME RESPIRATÓRIA AGUDA GRAVE 
+
+CARREGAR OS PACOTES:
+
+```{r}
+library(dplyr)
+library(rstatix)
+if(!require(ggplot2)) install.packages("ggplot2")
+library("ggplot2")
+if(!require(plotly)) install.packages("plotly")
+library(plotly)
+```
+```{r}
+setwd("~/Desktop/PROGRAMAÇAO/Linguagem R para analise de dados")
+srag_sp <- read.csv('SRAG_2020.csv', sep = ";")
+```
+```{r}
+View(srag_sp)
+
+```
+TRATAMENTO INICIAL DE DADOS:
+```{r}
+# Excluir algumas variáveis 
+
+srag_sp <- select(srag_sp, -c(51:133))
+srag_sp <- select(srag_sp, -c(5:8))
+srag_sp <- select(srag_sp, -c(6,8))
+```
+```{r}
+# Formatar os tipos de dados:
+glimpse(srag_sp)
+srag_sp$DT_NOTIFIC <- as.Date(srag_sp$DT_NOTIFIC, format = "%m/%d/%Y")
+srag_sp <- rename(srag_sp, sexo = CS_SEXO, idade=NU_IDADE_N)
+```
+```{r}
+    # valores missing 
+sapply(srag_sp, function(x) sum(is.na(x)))
+sapply(srag_sp, function(x) sum(is.nan(x)))
+```
+```{r}
+  # ANÁLISE GRÁFICA:
+
+# GRPAFICO DE BARRAS:
+
+table(srag_sp$sexo)
+
+graf_barras <- table(srag_sp$sexo) 
+barplot(graf_barras, col="yellow", main = "QUANTIDADE POR SEXO")
+```
+
+```{r}
+ # com o GGPLOT2
+
+ggplot(srag_sp, aes(x=sexo)) + geom_bar(fill="red")+ labs(title = "Quantidade por Sexo", subtitle = "SRAG", x ="Sexo", y="Quantidade")
+
+```
+```{r}
+  # GRAFICO POR RAÇA 
+# Preenher os Valores Missing 
+srag_sp$CS_RACA[which((is.na(srag_sp$CS_RACA)))] <- 9 # Preenchendo todos os valores missing com o valor referene à Ignorado 
+
+srag_sp$CS_RACA[srag_sp$CS_RACA==1] <- "Branca"
+srag_sp$CS_RACA[srag_sp$CS_RACA==2]<- "Preta"
+srag_sp$CS_RACA[srag_sp$CS_RACA==3] <-"Amarela"
+srag_sp$CS_RACA[srag_sp$CS_RACA==4]<- "Parda"
+srag_sp$CS_RACA[srag_sp$CS_RACA==5] <- "Indigena"
+srag_sp$CS_RACA[srag_sp$CS_RACA==9] <- "Ignorado"
+
+ggplot(srag_sp, aes(x=CS_RACA)) + geom_bar(fill="red") + labs(title="Quantidade por Raça", subtitle = "SRAG", )
+```
+
+```{r}
+ # GRAFICO POR RAÇA, SEXO E REGIÃO 
+srag_sp$CS_ZONA[which(is.na(srag_sp$CS_ZONA))] <- 9 
+
+srag_sp$CS_ZONA[srag_sp$CS_ZONA ==1]<- "Urbama"
+srag_sp$CS_ZONA[srag_sp$CS_ZONA ==2]<- "Rural"
+srag_sp$CS_ZONA[srag_sp$CS_ZONA ==3]<- "Periurbana"
+srag_sp$CS_ZONA[srag_sp$CS_ZONA ==9]<- "Ignorado"
+
+table(srag_sp$CS_ZONA)
+
+ggplot(srag_sp, aes(x=CS_RACA, y= sexo, fill=factor(CS_ZONA))) + geom_col(position="dodge") + labs(title="Região por Sexo e raça", x = "Raça", y="Sexo", fill="Região")
+
+```
+
+```{r}
+# Gráfico de Barras na Horizontal:
+ggplot(srag_sp, aes(x=CS_RACA, y= sexo, fill=factor(CS_ZONA))) + geom_col(position="dodge") + labs(title="Região por Sexo e raça", x = "Raça", y="Sexo", fill="Região") + coord_flip()
+
+```
+
+```{r}
+# Gráfico de Barras Empilhado:
+
+grafico <- aggregate(idade~sexo + CS_ZONA, data=srag_sp, FUN=mean)
+ggplot(grafico, aes(x=CS_ZONA, y = idade, fill = factor(sexo)))+ geom_col(position="stack")
+
+```
+
+```{r}
+  # GRÁFICO COM O PLOTLY 
+srag_sp%>% plot_ly(x=~ CS_RACA) %>% layout(xaxis = list(tite="Raça"), yaxis=list(title="Quantidade") )
+
+```
+
+
+```{r}
+# Boxplot IDADE :
+
+srag_sp$idade[srag_sp$TP_IDADE==2] <- 0
+srag_sp$idade[srag_sp$TP_IDADE==1] <- 0 
+
+summary(srag_sp$idade)
+boxplot(srag_sp$idade)
+srag_sp %>% identify_outliers(idade)
+outliers <- c(boxplot.stats(srag_sp$idade)$out)
+srag_sp<- srag_sp[-c(which(srag_sp$idade %in% outliers)),]
+
+```
+```{r}
+# ggplot
+ srag_sp %>% filter(!is.na(idade)) %>% ggplot(aes(x=" ", y = idade)) + geom_boxplot(width = .3, outlier.colour = "red")
+
+```
+```{r}
+  # Com o plotly 
+plot_ly(srag_sp, y=srag_sp$idade, type="box") %>% layout(title="BOXPLOT por Idade", yaxis = list(title="Idade"))
+
+```
+```{r}
+# BOXPLOT Coletivo:
+
+par(mfrow=c(1,2)) # Gráficos em uma linha e duas colunas 
+boxplot(idade~sexo, srag_sp, ylab="Idade", xlab="Sexo")
+boxplot(idade~CS_RACA, srag_sp, ylab="Idade", xlab="Raça")
+
+```
+
+```{r}
+ # Coletivo ggplot:
+ ggplot(srag_sp, aes(x=factor(sexo), y=idade)) + geom_boxplot(fill="dodgerblue")+ labs(y="Idade", x="Sexo", title ="Distribuição das idades por Sexo")
+
+```
+
+```{r}
+  # Coletivo com Plotly:
+plot_ly(srag_sp, y=srag_sp$idade, color = srag_sp$sexo, 
+        type="box") %>% 
+  layout(title="BOXPLOT por Idade",
+         xaxis= list(title="Sexo"), yaxis = list(title="Idade"))
+
+```
+
+```{r}
+hist(srag_sp$idade, col ="blue",main = "SRAG por Idade", xlab = "Distribuição das Idades", ylab="Frequencia" )
+
+```
+```{r}
+
+qqnorm(srag_sp$idade, col="gray")
+qqline(srag_sp$idade, col="red" )
+```
+
+```{r}
+# Testes de Normalidade:
+library(nortest)
+
+# teste de Anderson-Darling
+ad.test(srag_sp$idade)
+# p-value menor que 0,05 
+
+```
+```{r}
+
+ggplot(data = srag_sp, aes(x=idade)) + geom_histogram(fill="red", bins=25) + labs(title="Histrograma da Idade", subtitle="SRAG", x="idade", y="Contagem")
+```
+```{r}
+plot_ly(x=srag_sp$idade, type="histogram") %>% layout(title="Histograma por Idade", xaxis= list(title="Idade"), yaxis=list(title="Quantidade"))
+
+```
+
+```{r}
+# GRÁFICOS DE DISPERSÃO 
+
+plot(srag_sp$DT_NOTIFIC, srag_sp$idade, title("Casos de SRAG por mês e por idade"), col="purple")
+
+scatter.smooth(srag_sp$DT_NOTIFIC, srag_sp$idade)
+
+```
+
+```{r}
+# GGPLOT
+ggplot(srag_sp, aes(x=DT_NOTIFIC, y =idade)) +
+  geom_point()+
+  labs(title = "Relação data de notificação e idade", x="Data de notificação", y="Idade")
+```
+
+```{r}
+# Gráfio de Dispersão com 4 variáveis:
+ggplot(srag_sp, aes(x = DT_NOTIFIC, y = idade,  color=CS_RACA, shape=sexo)) +
+  geom_point() + labs(title = "Relação entre Data de Notificação, idade, sexo", x="Data de Notificação", y="idade")
+
+```
+
+
+```{r}
+plot_ly(x=srag_sp$DT_NOTIFIC, y = srag_sp$idade, type = "scatter", mode="markers", color=srag_sp$sexo)
+
+```
+
+```{r}
+
+# GRÁFICO DE BOLHAS:
+srag_sp_tupa <- srag_sp %>% filter(ID_MN_RESI =="TUPA")
+View(srag_sp_tupa)
+ggplot(srag_sp_tupa, aes(x=DT_NOTIFIC , y=CS_ZONA, size=idade)) + geom_point()+
+  labs(title="Relação entre data e região ", x="Data da Notificação", y="Região")
+
+```
+
+
+```{r}
+# Pizza:
+
+table(srag_sp$sexo)
+pie(table(srag_sp$sexo), col = c("red","blue","purple"), radius=2)
+
+```
+
+
+
+
+```{r}
+# Com GGPLOT 
+
+graf_pizz <- ggplot(srag_sp, aes(x=" ", fill=sexo)) + geom_bar(width=1) + coord_polar("y")
+graf_pizz + theme(plot.background = element_rect(fill="gray",colour = "red"))
+
+```
+```{r}
+library(scales)
+table(srag_sp$sexo)
+grafico <- data.frame(
+  grupo = c("Masculino", "Feminino"),
+  valores = c(1311, 1041))
+  soma = sum(table(srag_sp$sexo))
+
+grafico %>%
+  ggplot(aes(x="", y=valores, fill=grupo)) +
+  geom_col() +
+  geom_text(aes(label = percent(valores/soma, accuracy = 0.1)), position = position_stack(vjust = 0.5)) +
+  scale_fill_brewer(palette = "Reds") +
+  coord_polar("y") +
+  theme_void() +
+  labs(title = "QUANTIDADE POR SEXO",
+       fill = "LEGENDA")
+```
+```{r}
+# Com o Plotly
+plot_ly(srag_sp, labels = ~sexo, type ="pie")
+
+```
+```{r}
+plot_ly(srag_sp, labels = ~CS_RACA, type="pie")
+```
+
+
+```{r}
+plot_ly(srag_sp, labels=~CS_ZONA, type = "pie")
+```
+
+
+```{r}
+# FREQÊNCIAS:
+if(!require(sampling)) install.packages("sampling")
+if(!require(TeachingSampling)) install.packages("TeachingSampling")
+library(sampling)
+library(TeachingSampling)
+
+```
+```{r}
+# Tabela de Frequencia:
+
+# Freq. Absoluta:
+freq_abs <- table(srag_sp$idade)
+View(freq_abs)
+
+# Freq. Relativa:
+freq_rel <- prop.table(freq_abs)
+View(freq_rel)
+
+# Porcentagem da frequencia relativa:
+
+frea_rel_por <- 100*freq_rel
+View(frea_rel_por)
+
+# Criar uma linha no final com o total 
+freq_abs <- c(freq_abs, sum(freq_abs))
+View(freq_abs)
+names(freq_abs)[112] <- "Total"
+```
+
+```{r}
+# Gráficos de Frequencia :
+
+hist
+
+```
+
+
+
+
+
+
+
+
